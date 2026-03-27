@@ -15,6 +15,7 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@prisma/client": "^6.17.1",
     "bcryptjs": "^3.0.3",
+    "lucide-react": "^1.7.0",
     "next": "16.2.1",
     "next-auth": "^4.24.13",
     "react": "19.2.4",
