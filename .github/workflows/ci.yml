@@ -8,6 +8,9 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
 
     steps:
       - name: Checkout
@@ -25,8 +28,49 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm run test
+      - name: Test with Coverage
+        run: npm run test:coverage
+
+      - name: Publish Unit Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: reports/junit.xml
+          check_name: Unit Test Report
+          detailed_summary: true
+          require_tests: true
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-reports
+          path: |
+            reports/junit.xml
+            coverage/lcov.info
+            coverage/coverage-summary.json
+            coverage/index.html
 
       - name: Build
         run: npm run build
+
+      - name: Coverage Summary
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = "coverage/coverage-summary.json";
+            if (!fs.existsSync(path)) process.exit(0);
+            const summary = JSON.parse(fs.readFileSync(path, "utf8")).total;
+            const lines = [
+              "## Test Coverage",
+              "",
+              "| Metric | % | Covered / Total |",
+              "| --- | ---: | ---: |",
+              `| Lines | ${summary.lines.pct}% | ${summary.lines.covered}/${summary.lines.total} |`,
+              `| Statements | ${summary.statements.pct}% | ${summary.statements.covered}/${summary.statements.total} |`,
+              `| Functions | ${summary.functions.pct}% | ${summary.functions.covered}/${summary.functions.total} |`,
+              `| Branches | ${summary.branches.pct}% | ${summary.branches.covered}/${summary.branches.total} |`,
+            ];
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          '
