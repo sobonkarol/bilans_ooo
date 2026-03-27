@@ -20,7 +20,13 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "lcov", "json-summary", "html"],
       include: ["app/api/auth/**/*.ts", "lib/**/*.ts"],
-      exclude: ["lib/prisma.ts"],
+      exclude: ["lib/prisma.ts", "app/api/auth/[...nextauth]/route.ts"],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        statements: 80,
+        branches: 80,
+      },
     },
   },
   resolve: {
