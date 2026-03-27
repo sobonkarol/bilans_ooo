@@ -145,6 +145,59 @@ describe("POST /api/auth/register", () => {
     expect(res.status).toBe(400);
   });
 
+  it("zwraca 400 dla błędu walidacji", async () => {
+    const res = await POST(
+      createJsonRequest({
+        email: "bad-email",
+        password: "password1234",
+        name: "John",
+      })
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("kontynuuje rejestrację gdy breach check jest niedostępny", async () => {
+    checkPasswordPwnedMock.mockResolvedValue({
+      checked: false,
+      pwned: false,
+      count: 0,
+    });
+    findUniqueMock.mockResolvedValue(null);
+    hashMock.mockResolvedValue("hashed-password");
+    createMock.mockResolvedValue({
+      id: "user_1",
+      email: "john@example.com",
+      name: "John",
+    });
+
+    const res = await POST(
+      createJsonRequest({
+        email: "john@example.com",
+        password: "password1234",
+        name: "John",
+      })
+    );
+
+    expect(res.status).toBe(201);
+  });
+
+  it("zwraca 500 gdy tworzenie użytkownika rzuca wyjątek", async () => {
+    findUniqueMock.mockResolvedValue(null);
+    hashMock.mockResolvedValue("hashed-password");
+    createMock.mockRejectedValue(new Error("db error"));
+
+    const res = await POST(
+      createJsonRequest({
+        email: "john@example.com",
+        password: "password1234",
+        name: "John",
+      })
+    );
+
+    expect(res.status).toBe(500);
+  });
+
   it("zwraca 400 dla uszkodzonego JSON", async () => {
     const req = new NextRequest("http://localhost:3000/api/auth/register", {
       method: "POST",
