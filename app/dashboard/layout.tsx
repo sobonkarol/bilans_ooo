@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { DASHBOARD_MENU_ITEMS, type DashboardMenuIcon } from "@/lib/dashboard-menu";
+import { prisma } from "@/lib/prisma";
+import { OnboardingModal } from "@/app/dashboard/components/onboarding-modal";
 
 type DashboardLayoutProps = {
   children: React.ReactNode;
@@ -35,6 +37,18 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   if (!session?.user) {
     redirect("/login");
   }
+
+  const company = await prisma.company.findUnique({
+    where: { userId: session.user.id },
+    select: {
+      onboardingCompleted: true,
+      rateType: true,
+      rateValue: true,
+      workingHoursPerDay: true,
+      taxType: true,
+      zusType: true,
+    },
+  });
 
   return (
     <div className="min-h-screen bg-(--bg-canvas) text-(--text-strong)">
@@ -70,6 +84,16 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
         <main className="px-4 py-6 sm:px-8 sm:py-8">{children}</main>
       </div>
+      <OnboardingModal
+        isCompleted={company?.onboardingCompleted ?? false}
+        initialValues={{
+          rateType: company?.rateType ?? "HOURLY",
+          rateValue: company?.rateValue ?? undefined,
+          workingHoursPerDay: company?.workingHoursPerDay ?? 8,
+          taxType: company?.taxType ?? "SKALA",
+          zusType: company?.zusType ?? "DUZY_ZUS",
+        }}
+      />
     </div>
   );
 }
