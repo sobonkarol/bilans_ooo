@@ -6,14 +6,7 @@ import React, { useState } from "react";
 type Theme = "light" | "dark";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof document === "undefined") {
-      return "light";
-    }
-
-    const current = document.documentElement.getAttribute("data-theme");
-    return current === "dark" ? "dark" : "light";
-  });
+  const [theme, setTheme] = useState<Theme>("light");
 
   const toggleTheme = () => {
     const nextTheme: Theme = theme === "dark" ? "light" : "dark";
@@ -35,8 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       >
           <span
             aria-hidden="true"
-            className="absolute top-1 left-1 h-8 w-8 rounded-full bg-(--accent-soft) shadow-sm transition-transform duration-300 ease-out"
-            style={{ transform: theme === "dark" ? "translateX(44px)" : "translateX(0px)" }}
+            className={`absolute top-1 left-1 h-8 w-8 rounded-full bg-(--accent-soft) shadow-sm transition-transform duration-300 ease-out ${theme === "dark" ? "translate-x-11" : "translate-x-0"}`}
           />
           <span className="relative z-10 flex items-center justify-between px-2">
             <span

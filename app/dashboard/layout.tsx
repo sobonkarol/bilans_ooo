@@ -14,10 +14,33 @@ import {
 } from "lucide-react";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { DASHBOARD_MENU_ITEMS, type DashboardMenuIcon } from "@/lib/dashboard-menu";
+import { prisma } from "@/lib/prisma";
+import { OnboardingModal } from "@/app/dashboard/components/onboarding-modal";
+import { DEFAULT_RULE_YEAR } from "@/lib/finance-rules";
 
 type DashboardLayoutProps = {
   children: React.ReactNode;
 };
+
+function readRateType(value: unknown): "HOURLY" | "DAILY" {
+  return value === "DAILY" ? "DAILY" : "HOURLY";
+}
+
+function readTaxType(value: unknown): "RYCZALT" | "LINIOWY" | "SKALA" {
+  if (value === "RYCZALT" || value === "LINIOWY") {
+    return value;
+  }
+
+  return "SKALA";
+}
+
+function readZusType(value: unknown): "ULGA_NA_START" | "MALY_ZUS_PLUS" | "DUZY_ZUS" {
+  if (value === "ULGA_NA_START" || value === "MALY_ZUS_PLUS") {
+    return value;
+  }
+
+  return "DUZY_ZUS";
+}
 
 const iconByKey: Record<DashboardMenuIcon, LucideIcon> = {
   mainBalance: BarChart3,
@@ -35,6 +58,24 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   if (!session?.user) {
     redirect("/login");
   }
+
+  const company = await prisma.company.findUnique({ where: { userId: session.user.id } });
+  const companyRecord = company as Record<string, unknown> | null;
+
+  const onboardingCompleted =
+    typeof companyRecord?.onboardingCompleted === "boolean" ? companyRecord.onboardingCompleted : false;
+  const rateType = readRateType(companyRecord?.rateType);
+  const rateValue = typeof companyRecord?.rateValue === "number" ? companyRecord.rateValue : undefined;
+  const workingHoursPerDay =
+    typeof companyRecord?.workingHoursPerDay === "number" ? companyRecord.workingHoursPerDay : 8;
+  const rawTaxType = companyRecord?.taxType ?? companyRecord?.taxationType;
+  const taxType = readTaxType(rawTaxType);
+  const ryczaltRate = typeof companyRecord?.ryczaltRate === "number" ? companyRecord.ryczaltRate : undefined;
+  const zusType = readZusType(companyRecord?.zusType);
+  const choroboweEnabled = typeof companyRecord?.choroboweEnabled === "boolean" ? companyRecord.choroboweEnabled : false;
+  const choroboweMonthly =
+    typeof companyRecord?.choroboweMonthly === "number" ? companyRecord.choroboweMonthly : undefined;
+  const rulesYear = typeof companyRecord?.rulesYear === "number" ? companyRecord.rulesYear : DEFAULT_RULE_YEAR;
 
   return (
     <div className="min-h-screen bg-(--bg-canvas) text-(--text-strong)">
@@ -70,6 +111,20 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
         <main className="px-4 py-6 sm:px-8 sm:py-8">{children}</main>
       </div>
+      <OnboardingModal
+        isCompleted={onboardingCompleted}
+        initialValues={{
+          rateType,
+          rateValue,
+          workingHoursPerDay,
+          taxType,
+          ryczaltRate,
+          zusType,
+          choroboweEnabled,
+          choroboweMonthly,
+          rulesYear,
+        }}
+      />
     </div>
   );
 }
