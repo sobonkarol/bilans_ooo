@@ -2,7 +2,42 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { estimateMonthlyFinance } from "@/lib/finance-estimator";
+import { DEFAULT_RULE_YEAR } from "@/lib/finance-rules";
 import { prisma } from "@/lib/prisma";
+
+type CompatibleTransaction = {
+  amount: number;
+  type: "INCOME" | "EXPENSE" | "TAX";
+};
+
+type CompatibleSubscription = {
+  amount: number;
+  cycle: "MONTHLY" | "YEARLY";
+};
+
+function readRateType(value: unknown): "HOURLY" | "DAILY" | null {
+  if (value === "HOURLY" || value === "DAILY") {
+    return value;
+  }
+
+  return null;
+}
+
+function readTaxType(value: unknown): "RYCZALT" | "LINIOWY" | "SKALA" | null {
+  if (value === "RYCZALT" || value === "LINIOWY" || value === "SKALA") {
+    return value;
+  }
+
+  return null;
+}
+
+function readZusType(value: unknown): "ULGA_NA_START" | "MALY_ZUS_PLUS" | "DUZY_ZUS" | null {
+  if (value === "ULGA_NA_START" || value === "MALY_ZUS_PLUS" || value === "DUZY_ZUS") {
+    return value;
+  }
+
+  return null;
+}
 
 const currencyFormatter = new Intl.NumberFormat("pl-PL", {
   style: "currency",
@@ -27,13 +62,7 @@ export default async function DashboardPage() {
 
   const company = await prisma.company.findUnique({
     where: { userId: session.user.id },
-    select: {
-      rateType: true,
-      rateValue: true,
-      workingHoursPerDay: true,
-      taxType: true,
-      zusType: true,
-      onboardingCompleted: true,
+    include: {
       transactions: {
         where: {
           date: {
@@ -68,16 +97,41 @@ export default async function DashboardPage() {
     );
   }
 
+  const companyRecord = company as (Record<string, unknown> & {
+    transactions: CompatibleTransaction[];
+    subscriptions: CompatibleSubscription[];
+  }) | null;
+
+  const rateType = readRateType(companyRecord?.rateType);
+  const rateValue = typeof companyRecord?.rateValue === "number" ? companyRecord.rateValue : null;
+  const workingHoursPerDay =
+    typeof companyRecord?.workingHoursPerDay === "number" ? companyRecord.workingHoursPerDay : 8;
+  const rawTaxType = companyRecord?.taxType ?? companyRecord?.taxationType;
+  const taxType = readTaxType(rawTaxType);
+  const ryczaltRate = typeof companyRecord?.ryczaltRate === "number" ? companyRecord.ryczaltRate : null;
+  const zusType = readZusType(companyRecord?.zusType);
+  const choroboweEnabled =
+    typeof companyRecord?.choroboweEnabled === "boolean" ? companyRecord.choroboweEnabled : false;
+  const choroboweMonthly =
+    typeof companyRecord?.choroboweMonthly === "number" ? companyRecord.choroboweMonthly : null;
+  const rulesYear = typeof companyRecord?.rulesYear === "number" ? companyRecord.rulesYear : DEFAULT_RULE_YEAR;
+  const onboardingCompleted =
+    typeof companyRecord?.onboardingCompleted === "boolean" ? companyRecord.onboardingCompleted : false;
+
   const summary = estimateMonthlyFinance(
     {
-      rateType: company.rateType,
-      rateValue: company.rateValue,
-      workingHoursPerDay: company.workingHoursPerDay,
-      taxType: company.taxType,
-      zusType: company.zusType,
+      rulesYear,
+      rateType,
+      rateValue,
+      workingHoursPerDay,
+      taxType,
+      ryczaltRate,
+      zusType,
+      choroboweEnabled,
+      choroboweMonthly,
     },
-    company.transactions,
-    company.subscriptions
+    companyRecord?.transactions ?? [],
+    companyRecord?.subscriptions ?? []
   );
 
   return (
@@ -89,7 +143,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {!company.onboardingCompleted ? (
+      {!onboardingCompleted ? (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
           Aby uzyskać dokładniejsze wyliczenia, dokończ onboarding w sekcji Ustawienia.
         </div>
@@ -141,7 +195,10 @@ export default async function DashboardPage() {
           <p>Wpływy z transakcji: {formatCurrency(summary.incomesFromTransactions)}</p>
           <p>Wydatki z transakcji: {formatCurrency(summary.expensesFromTransactions)}</p>
           <p>Subskrypcje (miesięcznie): {formatCurrency(summary.monthlySubscriptions)}</p>
-          <p>Model podatkowy: {company.taxType ?? "brak"}</p>
+          <p>Model podatkowy: {taxType ?? "brak"}</p>
+          <p>Stawka ryczałtu: {taxType === "RYCZALT" ? `${ryczaltRate ?? 8.5}%` : "nie dotyczy"}</p>
+          <p>Dobrowolne chorobowe: {choroboweEnabled ? formatCurrency(choroboweMonthly ?? 0) : "nie"}</p>
+          <p>Rok stawek: {rulesYear}</p>
         </div>
       </div>
     </section>

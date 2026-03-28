@@ -32,6 +32,8 @@ function createJsonRequest(body: unknown) {
 }
 
 describe("POST /api/company/onboarding", () => {
+  const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -41,11 +43,15 @@ describe("POST /api/company/onboarding", () => {
 
     const res = await POST(
       createJsonRequest({
+        rulesYear: 2026,
         rateType: "HOURLY",
         rateValue: 120,
         workingHoursPerDay: 8,
         taxType: "LINIOWY",
+        ryczaltRate: null,
         zusType: "MALY_ZUS_PLUS",
+        choroboweEnabled: false,
+        choroboweMonthly: null,
       })
     );
 
@@ -75,11 +81,15 @@ describe("POST /api/company/onboarding", () => {
 
     const res = await POST(
       createJsonRequest({
+        rulesYear: 2026,
         rateType: "HOURLY",
         rateValue: -10,
         workingHoursPerDay: 8,
         taxType: "LINIOWY",
+        ryczaltRate: null,
         zusType: "MALY_ZUS_PLUS",
+        choroboweEnabled: false,
+        choroboweMonthly: null,
       })
     );
 
@@ -96,19 +106,27 @@ describe("POST /api/company/onboarding", () => {
       id: "company_1",
       userId: "user_1",
       onboardingCompleted: true,
+      rulesYear: 2026,
       rateType: "HOURLY",
       rateValue: 120,
       workingHoursPerDay: 8,
       taxType: "LINIOWY",
+      ryczaltRate: null,
       zusType: "MALY_ZUS_PLUS",
+      choroboweEnabled: false,
+      choroboweMonthly: null,
     });
 
     const payload = {
+      rulesYear: 2026,
       rateType: "HOURLY",
       rateValue: 120,
       workingHoursPerDay: 8,
       taxType: "LINIOWY",
+      ryczaltRate: null,
       zusType: "MALY_ZUS_PLUS",
+      choroboweEnabled: false,
+      choroboweMonthly: null,
     };
 
     const res = await POST(createJsonRequest(payload));
@@ -131,11 +149,15 @@ describe("POST /api/company/onboarding", () => {
         id: true,
         userId: true,
         onboardingCompleted: true,
+        rulesYear: true,
         rateType: true,
         rateValue: true,
         workingHoursPerDay: true,
         taxType: true,
+        ryczaltRate: true,
         zusType: true,
+        choroboweEnabled: true,
+        choroboweMonthly: true,
       },
     });
   });
@@ -146,14 +168,25 @@ describe("POST /api/company/onboarding", () => {
 
     const res = await POST(
       createJsonRequest({
+        rulesYear: 2026,
         rateType: "HOURLY",
         rateValue: 120,
         workingHoursPerDay: 8,
         taxType: "LINIOWY",
+        ryczaltRate: null,
         zusType: "MALY_ZUS_PLUS",
+        choroboweEnabled: false,
+        choroboweMonthly: null,
       })
     );
 
     expect(res.status).toBe(500);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "[company-onboarding][POST]",
+      expect.objectContaining({
+        requestId: expect.any(String),
+        error: expect.any(Error),
+      })
+    );
   });
 });

@@ -45,11 +45,15 @@ export async function POST(req: NextRequest) {
         id: true,
         userId: true,
         onboardingCompleted: true,
+        rulesYear: true,
         rateType: true,
         rateValue: true,
         workingHoursPerDay: true,
         taxType: true,
+        ryczaltRate: true,
         zusType: true,
+        choroboweEnabled: true,
+        choroboweMonthly: true,
       },
     });
 
@@ -61,7 +65,9 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch {
+  } catch (error) {
+    console.error("[company-onboarding][POST]", { requestId, error });
+
     return NextResponse.json(
       {
         requestId,

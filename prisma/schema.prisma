@@ -88,11 +88,15 @@ model Company {
 
   name                String?
   nip                 String?
+  rulesYear           Int       @default(2026)
   rateType            RateType?
   rateValue           Float?
   workingHoursPerDay  Int       @default(8)
   taxType             TaxType?
+  ryczaltRate         Float?
   zusType             ZusType?
+  choroboweEnabled    Boolean   @default(false)
+  choroboweMonthly    Float?
   onboardingCompleted Boolean   @default(false)
 
   transactions  Transaction[]

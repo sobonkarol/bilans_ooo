@@ -6,11 +6,15 @@ describe("finance-estimator", () => {
   it("liczy miesięczny bilans dla stawki godzinowej", () => {
     const summary = estimateMonthlyFinance(
       {
+        rulesYear: 2026,
         rateType: "HOURLY",
         rateValue: 100,
         workingHoursPerDay: 8,
         taxType: "LINIOWY",
+        ryczaltRate: null,
         zusType: "MALY_ZUS_PLUS",
+        choroboweEnabled: false,
+        choroboweMonthly: null,
       },
       [
         { amount: 2000, type: "EXPENSE" },
@@ -32,11 +36,15 @@ describe("finance-estimator", () => {
   it("używa rzeczywistych wpływów, jeśli są wyższe niż estymacja", () => {
     const summary = estimateMonthlyFinance(
       {
+        rulesYear: 2026,
         rateType: "DAILY",
         rateValue: 400,
         workingHoursPerDay: 8,
         taxType: "RYCZALT",
+        ryczaltRate: 12,
         zusType: "ULGA_NA_START",
+        choroboweEnabled: true,
+        choroboweMonthly: 120,
       },
       [
         { amount: 12000, type: "INCOME" },
@@ -46,7 +54,8 @@ describe("finance-estimator", () => {
     );
 
     expect(summary.estimatedRevenue).toBe(12000);
-    expect(summary.taxEstimate).toBeCloseTo(899.3, 5);
-    expect(summary.netEstimate).toBeCloseTo(9680.7, 5);
+    expect(summary.zusEstimate).toBe(540);
+    expect(summary.taxEstimate).toBeCloseTo(1255.2, 5);
+    expect(summary.netEstimate).toBeCloseTo(9204.8, 5);
   });
 });

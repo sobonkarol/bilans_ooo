@@ -1,11 +1,16 @@
-import { BillingCycle, RateType, TaxType, TransactionType, ZusType } from "@prisma/client";
+import { BillingCycle, TransactionType } from "@prisma/client";
+import { getFinanceRules, resolveRulesYear, type RateType, type TaxType, type ZusType } from "@/lib/finance-rules";
 
 type CompanyFinanceInput = {
+  rulesYear: number | null;
   rateType: RateType | null;
   rateValue: number | null;
   workingHoursPerDay: number;
   taxType: TaxType | null;
+  ryczaltRate: number | null;
   zusType: ZusType | null;
+  choroboweEnabled: boolean;
+  choroboweMonthly: number | null;
 };
 
 type TransactionInput = {
@@ -28,19 +33,23 @@ export type MonthlyFinanceSummary = {
   netEstimate: number;
 };
 
-const WORKING_DAYS_IN_MONTH = 22;
+function readTaxRate(company: CompanyFinanceInput): number {
+  const rules = getFinanceRules(company.rulesYear);
 
-const ZUS_ESTIMATE_BY_TYPE: Record<ZusType, number> = {
-  ULGA_NA_START: 420,
-  MALY_ZUS_PLUS: 980,
-  DUZY_ZUS: 1780,
-};
+  if (!company.taxType) {
+    return 0;
+  }
 
-const TAX_RATE_BY_TYPE: Record<TaxType, number> = {
-  SKALA: 0.12,
-  LINIOWY: 0.19,
-  RYCZALT: 0.085,
-};
+  if (company.taxType === "RYCZALT") {
+    if (!company.ryczaltRate || company.ryczaltRate <= 0) {
+      return 0.085;
+    }
+
+    return company.ryczaltRate / 100;
+  }
+
+  return rules.taxRateByType[company.taxType];
+}
 
 function toMonthlySubscriptionCost(subscriptions: SubscriptionInput[]): number {
   return subscriptions.reduce((sum, item) => {
@@ -53,15 +62,17 @@ function toMonthlySubscriptionCost(subscriptions: SubscriptionInput[]): number {
 }
 
 function estimateRevenueFromRate(company: CompanyFinanceInput): number {
+  const rules = getFinanceRules(company.rulesYear);
+
   if (!company.rateType || !company.rateValue || company.rateValue <= 0) {
     return 0;
   }
 
   if (company.rateType === "DAILY") {
-    return company.rateValue * WORKING_DAYS_IN_MONTH;
+    return company.rateValue * rules.workingDaysInMonth;
   }
 
-  return company.rateValue * company.workingHoursPerDay * WORKING_DAYS_IN_MONTH;
+  return company.rateValue * company.workingHoursPerDay * rules.workingDaysInMonth;
 }
 
 export function estimateMonthlyFinance(
@@ -69,6 +80,8 @@ export function estimateMonthlyFinance(
   transactions: TransactionInput[],
   subscriptions: SubscriptionInput[]
 ): MonthlyFinanceSummary {
+  const rulesYear = resolveRulesYear(company.rulesYear);
+  const rules = getFinanceRules(rulesYear);
   const incomesFromTransactions = transactions
     .filter((item) => item.type === "INCOME")
     .reduce((sum, item) => sum + item.amount, 0);
@@ -79,8 +92,13 @@ export function estimateMonthlyFinance(
 
   const estimatedRevenue = Math.max(estimateRevenueFromRate(company), incomesFromTransactions);
   const monthlySubscriptions = toMonthlySubscriptionCost(subscriptions);
-  const zusEstimate = company.zusType ? ZUS_ESTIMATE_BY_TYPE[company.zusType] : 0;
-  const taxRate = company.taxType ? TAX_RATE_BY_TYPE[company.taxType] : 0;
+  const baseZusEstimate = company.zusType ? rules.zusEstimateByType[company.zusType] : 0;
+  const choroboweEstimate =
+    company.choroboweEnabled && company.choroboweMonthly && company.choroboweMonthly > 0
+      ? company.choroboweMonthly
+      : 0;
+  const zusEstimate = baseZusEstimate + choroboweEstimate;
+  const taxRate = readTaxRate(company);
 
   const taxableBase = Math.max(
     0,
